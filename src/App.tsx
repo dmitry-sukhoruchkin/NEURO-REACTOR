@@ -759,7 +759,7 @@ export default function App() {
       {/* Start Screen Overlay */}
       {!gameStarted && (
         <div className="absolute inset-0 bg-black/95 flex flex-col justify-center items-center z-[100] text-center">
-          <h1 className="text-[#0ff] text-4xl mb-4 font-bold shadow-[#0ff]" style={{ textShadow: '0 0 20px #0ff' }}>NEURO REACTOR v10.0</h1>
+          <h1 className="text-[#0ff] text-4xl mb-4 font-bold shadow-[#0ff]" style={{ textShadow: '0 0 20px #0ff' }}>NEURO REACTOR v10.1</h1>
           <p className="text-[#888] max-w-md text-sm mb-5">
             "Frieren's Chests" - PAC Focus Edition.<br /><br />
             1. <b>Move:</b> Auto-move via Alpha/Beta symmetry.<br />

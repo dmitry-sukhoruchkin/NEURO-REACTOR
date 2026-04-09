@@ -1,10 +1,9 @@
-# .github/workflows/deploy.yml
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches:
-      - main # или ваша основная ветка
+      - main
 
 permissions:
   contents: read
@@ -21,9 +20,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # cache: 'npm'  <-- Remove or comment out this line
       - name: Install dependencies
-        run: npm install  # 'npm ci' requires a lock file, 'npm install' does not
+        run: npm install
       - name: Build
         run: npm run build
       - name: Setup Pages
