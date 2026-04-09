@@ -21,9 +21,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache: 'npm'  <-- Remove or comment out this line
       - name: Install dependencies
-        run: npm ci
+        run: npm install  # 'npm ci' requires a lock file, 'npm install' does not      - name: Build
       - name: Build
         run: npm run build
       - name: Setup Pages
