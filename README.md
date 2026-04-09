@@ -1,20 +1,27 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Neuro Reactor
 
-# Run and deploy your AI Studio app
+Neuro Reactor is a Brain-Computer Interface (BCI) game that uses Web Bluetooth and EEG data to control gameplay directly from your browser. 
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/3055f7e5-1b9c-4cd8-818e-abe1235ca038
+* **Movement (Alpha/Beta):** Auto-move your avatar through the maze using Alpha/Beta symmetry.
+* **Hacking (Theta-Gamma PAC):** Stand near a chest and focus your mind (calculate, stare, concentrate) to trigger Theta-Gamma Phase-Amplitude Coupling (PAC) and reveal the chest!
+* **Web Bluetooth Integration:** Connect directly to compatible BLE EEG headsets.
+* **VR Mode:** Immersive VR mode for a deeper experience.
+* **Simulation Mode:** Test the game mechanics without an EEG device using the built-in data simulator.
 
-## Run Locally
+## Play Online
 
-**Prerequisites:**  Node.js
+You can play the game directly in your browser at the following links:
 
+* **Current Deployment:** [https://dmitry-sukhoruchkin.github.io/NEURO-REACTOR/](https://dmitry-sukhoruchkin.github.io/NEURO-REACTOR/)
+* **Main Project URL (Future Updates):** [https://neuroidss.github.io/NEURO-REACTOR/](https://neuroidss.github.io/NEURO-REACTOR/)
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## How to Play
+
+1. Click **CONNECT BLE** to connect your EEG device, or use **TEST WITHOUT BLE** to run the simulation.
+2. Navigate the maze using your brain activity.
+3. Approach yellow chests and focus to hack them. Beware of red mimics!
+4. Find the green exit to advance to the next floor.
+
+*Note: If you encounter Bluetooth permission errors, ensure you are running the game in a secure context (HTTPS) and not inside a restricted iframe.*
