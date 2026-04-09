@@ -25,3 +25,4 @@ You can play the game directly in your browser at the following links:
 4. Find the green exit to advance to the next floor.
 
 *Note: If you encounter Bluetooth permission errors, ensure you are running the game in a secure context (HTTPS) and not inside a restricted iframe.*
+
