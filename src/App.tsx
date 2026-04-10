@@ -6,10 +6,9 @@ const ANGLES = [-72, -36, 36, 72, 108, 144, -144, -108].map(d => d * Math.PI / 1
 const ELECTRODES = ANGLES.map(a => ({ x: Math.cos(a) * RADIUS, y: Math.sin(a) * RADIUS }));
 const UV_SCALE = (1.2 / 4.0 / 8388607.0) * 1e6;
 
-// === ТЕТА-ГАММА PAC ===
+// === ТЕТА-ГАММА PAC (АСИММЕТРИЯ) ===
 const THETA_BIN = 6;
-const GAMMA_BIN = 80;
-const NUM_SLOTS = 7;
+const NUM_SLOTS = 8;
 
 const PAIRS = [];
 const PAIR_MIDS = [];
@@ -92,6 +91,7 @@ class Maze {
     this.dim = dim;
     this.optimalDist = 0;
     this.chests = [];
+    this.orbs = [];
     this.grid = Array.from({ length: dim }, () => Array(dim).fill(1));
     let attempts = 0, isValid = false, bestExit = null, bestGrid = null;
 
@@ -127,7 +127,15 @@ class Maze {
               y: y + 0.5,
               isMimic: Math.random() > 0.5,
               state: 'closed',
-              scanProgress: 0
+              scanProgress: 0,
+              isTargeted: false
+            });
+          } else if (Math.random() < 0.15) {
+            // 15% chance to spawn an energy orb in empty corridors
+            this.orbs.push({
+              x: x + 0.5,
+              y: y + 0.5,
+              collected: false
             });
           }
         }
@@ -176,6 +184,27 @@ class Maze {
 export default function App() {
   const canvasRef = useRef(null);
   const reqRef = useRef(null);
+  const audioRef = useRef(null);
+
+  const initAudio = () => {
+    if (!audioRef.current) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle'; // Richer harmonics for biofeedback
+      osc.frequency.value = 100;
+      gain.gain.value = 0;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      audioRef.current = { ctx, osc, gain };
+    }
+    if (audioRef.current.ctx.state === 'suspended') {
+      audioRef.current.ctx.resume();
+    }
+  };
 
   // UI Refs for fast updates without React re-renders
   const scoreRef = useRef(null);
@@ -217,7 +246,9 @@ export default function App() {
     imArr: Array.from({ length: 8 }, () => new Float32Array(BUF_SIZE)),
     centered: Array.from({ length: 8 }, () => new Float32Array(BUF_SIZE)),
     electrodePressure: new Float32Array(8),
-    gamma_slots: new Float32Array(NUM_SLOTS),
+    slow_gamma_slots: Array.from({ length: 8 }, () => new Float32Array(NUM_SLOTS)),
+    fast_gamma_slots: Array.from({ length: 8 }, () => new Float32Array(NUM_SLOTS)),
+    intent_angle: 0,
     ws: null,
     floor: 1
   });
@@ -297,8 +328,20 @@ export default function App() {
       let cSize = cellSize * 0.4;
 
       if (chest.state === 'closed') {
-        ctx.fillStyle = '#ffd700';
+        ctx.fillStyle = chest.isTargeted ? '#ff00ff' : '#ffd700';
+        ctx.shadowColor = chest.isTargeted ? '#ff00ff' : 'transparent';
+        ctx.shadowBlur = chest.isTargeted ? 15 : 0;
         ctx.fillRect(cx - cSize / 2, cy - cSize / 2, cSize, cSize);
+        ctx.shadowBlur = 0;
+
+        if (chest.isTargeted) {
+          ctx.strokeStyle = `rgba(255, 0, 255, ${(s.smooth_focus - s.holoThr) * 2})`;
+          ctx.lineWidth = 2 + Math.random() * 4;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(s.player.x * cellSize, s.player.y * cellSize);
+          ctx.stroke();
+        }
 
         if (chest.scanProgress > 0) {
           ctx.strokeStyle = '#f0f';
@@ -326,6 +369,35 @@ export default function App() {
         }
       }
     }
+
+    // Orbs & Telekinesis Beams
+    for (let orb of s.maze.orbs) {
+      if (orb.collected) continue;
+      
+      let ox = orb.x * cellSize;
+      let oy = orb.y * cellSize;
+      
+      // Draw Orb (меняет цвет, если на нее направлено внимание)
+      ctx.fillStyle = orb.isTargeted ? '#ff00ff' : '#00ffff';
+      ctx.shadowColor = orb.isTargeted ? '#ff00ff' : '#00ffff';
+      ctx.shadowBlur = orb.isTargeted ? 20 : 10;
+      ctx.beginPath();
+      ctx.arc(ox, oy, cellSize * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0; // reset
+
+      // Draw Telekinesis Beam if being pulled
+      if (orb.isTargeted) {
+        ctx.strokeStyle = `rgba(255, 0, 255, ${(s.smooth_focus - s.holoThr) * 2})`;
+        ctx.lineWidth = 2 + Math.random() * 4; // Flickering effect
+        ctx.beginPath();
+        ctx.moveTo(ox, oy);
+        // Player is at (s.player.x * cellSize, s.player.y * cellSize) in this coordinate space
+        ctx.lineTo(s.player.x * cellSize, s.player.y * cellSize);
+        ctx.stroke();
+      }
+    }
+
     ctx.restore();
 
     ctx.save();
@@ -333,30 +405,78 @@ export default function App() {
 
     let pSize = cellSize * 0.25;
 
-    // PAC Hologram
-    let sum_g = 0;
-    for (let i = 0; i < NUM_SLOTS; i++) sum_g += s.gamma_slots[i];
-    let mean_g = sum_g / NUM_SLOTS;
-
-    for (let i = 0; i < NUM_SLOTS; i++) {
-      let val = (mean_g > 0) ? (s.gamma_slots[i] / mean_g) : 1;
-      let startAngle = (i / NUM_SLOTS) * Math.PI * 2;
-      let endAngle = ((i + 1) / NUM_SLOTS) * Math.PI * 2;
-      let hue = Math.floor((i * 360) / NUM_SLOTS);
-
-      let alpha = Math.min(1.0, val * 0.3);
-
-      ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${alpha})`;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      let petalLength = pSize * 1.5 + (val * 10 * s.smooth_focus);
-      ctx.arc(0, 0, petalLength, startAngle, endAngle);
-      ctx.lineTo(0, 0);
-      ctx.fill();
+    // 8-Channel Structural Analytics (Radar)
+    let max_slow_ch = 0, max_fast_ch = 0;
+    let ch_slow = new Float32Array(8);
+    let ch_fast = new Float32Array(8);
+    
+    for(let c=0; c<8; c++) {
+      let past_slow = s.slow_gamma_slots[c][1] + s.slow_gamma_slots[c][2] + s.slow_gamma_slots[c][3];
+      let future_fast = s.fast_gamma_slots[c][4] + s.fast_gamma_slots[c][5] + s.fast_gamma_slots[c][6];
+      ch_slow[c] = past_slow;
+      ch_fast[c] = future_fast;
+      if (past_slow > max_slow_ch) max_slow_ch = past_slow;
+      if (future_fast > max_fast_ch) max_fast_ch = future_fast;
     }
 
+    // Draw 8-Channel Radar (Past vs Future)
+    ctx.lineWidth = 1;
+    
+    // Past (Slow Gamma) - Cyan
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.2)';
+    ctx.strokeStyle = 'rgba(0, 255, 255, 0.8)';
+    ctx.beginPath();
+    for(let c=0; c<=8; c++) {
+      let idx = c % 8;
+      let val = max_slow_ch > 0 ? ch_slow[idx] / max_slow_ch : 0;
+      let angle = Math.atan2(ELECTRODES[idx].y, ELECTRODES[idx].x);
+      let r = pSize * 2 + val * 30;
+      let x = Math.cos(angle) * r;
+      let y = Math.sin(angle) * r;
+      if (c === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    // Future (Fast Gamma) - Magenta
+    ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
+    ctx.strokeStyle = 'rgba(255, 0, 255, 0.8)';
+    ctx.beginPath();
+    for(let c=0; c<=8; c++) {
+      let idx = c % 8;
+      let val = max_fast_ch > 0 ? ch_fast[idx] / max_fast_ch : 0;
+      let angle = Math.atan2(ELECTRODES[idx].y, ELECTRODES[idx].x);
+      let r = pSize * 2 + val * 30;
+      let x = Math.cos(angle) * r;
+      let y = Math.sin(angle) * r;
+      if (c === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    // Directional Intent Cone (Future / Fast Gamma Vector)
     if (s.smooth_focus > s.holoThr) {
-      ctx.strokeStyle = `rgba(255, 0, 255, ${Math.min(1, s.smooth_focus)})`;
+      let draw_angle = s.intent_angle - Math.PI/2; // Align 0 with UP (nose)
+      let cone_angle = Math.PI / 4 * (1.5 - s.sharpness); // Sharpness narrows the cone
+
+      ctx.fillStyle = `rgba(255, 0, 255, ${(s.smooth_focus - s.holoThr) * 0.4})`;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, pSize * 6, draw_angle - cone_angle, draw_angle + cone_angle);
+      ctx.lineTo(0, 0);
+      ctx.fill();
+
+      // Population Vector Line (The exact predicted trajectory)
+      ctx.strokeStyle = '#ff00ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(draw_angle) * pSize * 6, Math.sin(draw_angle) * pSize * 6);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(0, 255, 0, ${Math.min(1, s.smooth_focus)})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(0, 0, pSize * 2.5 + s.smooth_focus * 15, 0, Math.PI * 2);
@@ -461,40 +581,65 @@ export default function App() {
       s.lastTargetX = s.target_vx; s.lastTargetY = s.target_vy;
       if (s.reactor) s.reactor.update(s.target_vx, s.target_vy, s.target_tq, s.synapticPersistence, s.electrodePressure);
 
-      // 2. РАБОЧАЯ ПАМЯТЬ (ТЕТА-ГАММА PAC)
-      let sumThetaRe = 0, sumThetaIm = 0;
+      // 2. РАБОЧАЯ ПАМЯТЬ И НАМЕРЕНИЕ (ТЕТА-ГАММА АСИММЕТРИЯ И ВЕКТОР)
+      let global_intent = 0;
+      let fast_vec_x = 0, fast_vec_y = 0;
+      
+      let max_fast_future = 0;
+      let sum_fast_future = 0;
+
       for (let c = 0; c < 8; c++) {
-        sumThetaRe += s.reArr[c][THETA_BIN];
-        sumThetaIm += s.imArr[c][THETA_BIN];
-      }
-      let global_theta_phase = Math.atan2(sumThetaIm, sumThetaRe);
-      let normalized_phase = (global_theta_phase + Math.PI) / (2 * Math.PI);
-      let current_slot = Math.floor(normalized_phase * NUM_SLOTS);
-      if (current_slot >= NUM_SLOTS) current_slot = NUM_SLOTS - 1;
+        let thetaRe = s.reArr[c][THETA_BIN];
+        let thetaIm = s.imArr[c][THETA_BIN];
+        let phase = Math.atan2(thetaIm, thetaRe); // -PI to PI
+        let normalized_phase = (phase + Math.PI) / (2 * Math.PI);
+        let slot = Math.floor(normalized_phase * NUM_SLOTS) % NUM_SLOTS;
 
-      let global_gamma_power = 0;
-      for (let c = 0; c < 8; c++) {
-        global_gamma_power += Math.sqrt(s.reArr[c][GAMMA_BIN] ** 2 + s.imArr[c][GAMMA_BIN] ** 2);
-      }
-      global_gamma_power /= 8;
+        let slow_g = 0;
+        for(let k=31; k<=51; k++) slow_g += Math.sqrt(s.reArr[c][k]**2 + s.imArr[c][k]**2);
+        slow_g /= 21;
 
-      for (let i = 0; i < NUM_SLOTS; i++) {
-        if (i === current_slot) {
-          s.gamma_slots[i] = s.gamma_slots[i] * 0.95 + global_gamma_power * 0.05;
-        }
-      }
+        let fast_g = 0;
+        for(let k=61; k<=102; k++) fast_g += Math.sqrt(s.reArr[c][k]**2 + s.imArr[c][k]**2);
+        fast_g /= 42;
 
-      let max_g = 0, min_g = Infinity, sum_g = 0;
-      for (let i = 0; i < NUM_SLOTS; i++) {
-        let val = s.gamma_slots[i];
-        if (val > max_g) max_g = val;
-        if (val < min_g) min_g = val;
-        sum_g += val;
-      }
+        s.slow_gamma_slots[c][slot] = s.slow_gamma_slots[c][slot] * 0.9 + slow_g * 0.1;
+        s.fast_gamma_slots[c][slot] = s.fast_gamma_slots[c][slot] * 0.9 + fast_g * 0.1;
 
-      let mean_g = sum_g / NUM_SLOTS;
-      let focus_intent = (mean_g > 0) ? (max_g - min_g) / mean_g : 0;
-      s.smooth_focus = s.smooth_focus * 0.9 + (focus_intent / 2.0) * 0.1;
+        // Оценка асимметрии: Медленная гамма в прошлом (слоты 1,2,3), Быстрая в будущем (слоты 4,5,6)
+        let past_slow = s.slow_gamma_slots[c][1] + s.slow_gamma_slots[c][2] + s.slow_gamma_slots[c][3];
+        let total_slow = s.slow_gamma_slots[c].reduce((a,b)=>a+b, 0);
+        let future_fast = s.fast_gamma_slots[c][4] + s.fast_gamma_slots[c][5] + s.fast_gamma_slots[c][6];
+        let total_fast = s.fast_gamma_slots[c].reduce((a,b)=>a+b, 0);
+
+        let slow_ratio = total_slow > 0 ? past_slow / total_slow : 0;
+        let fast_ratio = total_fast > 0 ? future_fast / total_fast : 0;
+
+        let validity = (slow_ratio * fast_ratio) * 4.0;
+        global_intent += validity;
+
+        // Вектор Намерения (Population Vector Coding) на основе Быстрой Гаммы (Будущего)
+        fast_vec_x += future_fast * ELECTRODES[c].x;
+        fast_vec_y += future_fast * ELECTRODES[c].y;
+        
+        if (future_fast > max_fast_future) max_fast_future = future_fast;
+        sum_fast_future += future_fast;
+      }
+      global_intent /= 8; // Усредняем по 8 каналам
+      
+      // Calculate Sharpness (Focus Quality)
+      let mean_fast_future = sum_fast_future / 8;
+      // If max is much higher than mean, sharpness is high (1 channel dominates). If max == mean, sharpness is 0 (diffuse).
+      let current_sharpness = mean_fast_future > 0 ? ((max_fast_future / mean_fast_future) - 1) / 7 : 0; 
+      s.sharpness = s.sharpness * 0.9 + current_sharpness * 0.1;
+
+      s.smooth_focus = s.smooth_focus * 0.9 + global_intent * 0.1;
+      
+      // Сглаживаем угол вектора намерения
+      let target_angle = Math.atan2(fast_vec_y, fast_vec_x);
+      // Shortest path angle interpolation
+      let angle_diff = Math.atan2(Math.sin(target_angle - s.intent_angle), Math.cos(target_angle - s.intent_angle));
+      s.intent_angle += angle_diff * 0.1;
 
       // 3. ЛОГИКА ВЗЛОМА СУНДУКОВ
       for (let chest of s.maze.chests) {
@@ -513,9 +658,18 @@ export default function App() {
           continue;
         }
 
+        chest.isTargeted = false;
+
         if (dist < 3.0 && chest.state === 'closed') {
-          if (s.smooth_focus > s.holoThr) {
-            chest.scanProgress += (s.smooth_focus - s.holoThr) * 0.05;
+          let chest_abs_angle = Math.atan2(dy, dx);
+          let intent_world_angle = s.player.angle - Math.PI/2 + s.intent_angle;
+          let focus_diff = Math.atan2(Math.sin(chest_abs_angle - intent_world_angle), Math.cos(chest_abs_angle - intent_world_angle));
+          
+          let cone_angle = Math.PI / 4 * (1.5 - s.sharpness);
+
+          if (s.smooth_focus > s.holoThr && Math.abs(focus_diff) < cone_angle) {
+            chest.isTargeted = true;
+            chest.scanProgress += (s.smooth_focus - s.holoThr) * 0.05 * (1 + s.sharpness);
             if (chest.scanProgress >= 1.0) {
               chest.state = 'revealed';
             }
@@ -524,9 +678,43 @@ export default function App() {
           }
         }
       }
+
+      // 4. ЛОГИКА ТЕЛЕКИНЕЗА (СБОР СФЕР)
+      for (let orb of s.maze.orbs) {
+        if (orb.collected) continue;
+
+        let dx = orb.x - s.player.x; // Вектор от игрока к сфере
+        let dy = orb.y - s.player.y;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < 0.5) {
+          orb.collected = true;
+          s.scorePenalty -= 100; // Bonus for collecting
+          continue;
+        }
+
+        let orb_abs_angle = Math.atan2(dy, dx);
+        // Нос игрока в мировых координатах смотрит на -Math.PI/2 (вверх)
+        let intent_world_angle = s.player.angle - Math.PI/2 + s.intent_angle;
+        
+        // Разница между направлением на сферу и вектором намерения
+        let focus_diff = Math.atan2(Math.sin(orb_abs_angle - intent_world_angle), Math.cos(orb_abs_angle - intent_world_angle));
+
+        orb.isTargeted = false;
+
+        // Если сфера близко, фокус выше порога И она находится в конусе внимания -> притягиваем
+        // Sharpness narrows the cone and increases pull force
+        let cone_angle = Math.PI / 4 * (1.5 - s.sharpness); 
+        if (dist < 4.0 && s.smooth_focus > s.holoThr && Math.abs(focus_diff) < cone_angle) {
+          orb.isTargeted = true;
+          let pullForce = (s.smooth_focus - s.holoThr) * 0.15 * (1 + s.sharpness);
+          orb.x -= (dx / dist) * pullForce; // Притягиваем к игроку
+          orb.y -= (dy / dist) * pullForce;
+        }
+      }
     }
 
-    // 4. ФИЗИКА ДВИЖЕНИЯ АВАТАРА
+    // 5. ФИЗИКА ДВИЖЕНИЯ АВАТАРА
     let out_vx = invertDevice ? -s.target_vx : s.target_vx;
     let out_vy = invertDevice ? -s.target_vy : s.target_vy;
     let smooth = 0.98 - (s.skillLevel * 0.1), gain = s.skillLevel * 1.5, boost = (1.0 + s.synapticPersistence * 4.0);
@@ -602,10 +790,32 @@ export default function App() {
     }
 
     renderCanvas();
+
+    // 6. AUDIO BIOFEEDBACK (The Brain's Mirror)
+    if (audioRef.current) {
+      let isTargeting = s.maze.orbs.some(o => o.isTargeted) || s.maze.chests.some(c => c.isTargeted);
+      
+      // Theta pulse (6Hz amplitude modulation)
+      let theta_pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.001 * 6 * Math.PI * 2);
+      
+      // Volume depends on global intent (PAC) and pulses at Theta frequency
+      let targetVol = Math.max(0, (s.smooth_focus - s.holoThr) * 0.3) * theta_pulse;
+      
+      // Pitch changes when locked onto a target, waveform changes with sharpness
+      let targetFreq = isTargeting ? 432 : 150 + (s.smooth_focus * 100);
+      
+      // If attention is diffuse (low sharpness), sound is noisier/harsher. If sharp, it's pure.
+      audioRef.current.osc.type = s.sharpness > 0.6 ? 'sine' : (s.sharpness > 0.4 ? 'triangle' : 'sawtooth');
+
+      audioRef.current.gain.gain.setTargetAtTime(targetVol, audioRef.current.ctx.currentTime, 0.05);
+      audioRef.current.osc.frequency.setTargetAtTime(targetFreq, audioRef.current.ctx.currentTime, 0.1);
+    }
+
     reqRef.current = requestAnimationFrame(gameLoop);
   };
 
   const startSimulation = () => {
+    initAudio();
     state.current.maze = new Maze(11);
     state.current.effortDist = 0;
     state.current.scorePenalty = 0;
@@ -616,10 +826,34 @@ export default function App() {
 
     // Mock data generator for testing without BLE
     setInterval(() => {
+      let t = Date.now() * 0.001;
+      let theta_phase = (t * 6 * Math.PI * 2) % (Math.PI * 2);
+      if (theta_phase > Math.PI) theta_phase -= Math.PI * 2; // -PI to PI
+      
+      let is_focused = true; // В симуляции всегда держим фокус, чтобы показать радар
+      let sim_intent_angle = Math.sin(t * 0.8) * Math.PI; // Вектор внимания плавно сканирует как радар (180 градусов)
+
       for (let i = 0; i < 8; i++) {
         state.current.eegBuffer[i].set(state.current.eegBuffer[i].subarray(1));
-        // Inject some random noise and fake alpha/gamma
-        state.current.eegBuffer[i][255] = (Math.random() - 0.5) * 50 + Math.sin(Date.now() * 0.02) * 20;
+        
+        let val = (Math.random() - 0.5) * 50; // Шум
+        val += Math.sin(t * 6 * Math.PI * 2) * 20; // Тета-волна (6 Гц)
+        
+        if (is_focused) {
+          // Симуляция асимметрии: Медленная гамма (40 Гц) до пика, Быстрая (80 Гц) после пика
+          if (theta_phase > -Math.PI/2 && theta_phase < 0) {
+            val += Math.sin(t * 40 * Math.PI * 2) * 15; // Прошлое (везде одинаково)
+          } else if (theta_phase > 0 && theta_phase < Math.PI/2) {
+            // Будущее (Быстрая гамма) строго направлено!
+            let electrode_angle = Math.atan2(ELECTRODES[i].y, ELECTRODES[i].x);
+            let angle_match = Math.cos(electrode_angle - sim_intent_angle);
+            if (angle_match > 0) {
+              val += Math.sin(t * 80 * Math.PI * 2) * 35 * angle_match; // Усилил сигнал для четкого вектора
+            }
+          }
+        }
+        
+        state.current.eegBuffer[i][255] = val;
       }
     }, 4); // ~250Hz
 
@@ -627,6 +861,7 @@ export default function App() {
   };
 
   const startBLE = async () => {
+    initAudio();
     try {
       const device = await navigator.bluetooth.requestDevice({ filters: [{ services: ["4fafc201-1fb5-459e-8fcc-c5c9c331914b"] }] });
       const server = await device.gatt.connect();
@@ -701,7 +936,7 @@ export default function App() {
           <div ref={synapseFillRef} className="h-full bg-[#0ff] w-0 shadow-[0_0_10px_#0ff] transition-all duration-100"></div>
         </div>
 
-        <div className="text-xs mb-1 flex justify-between items-center uppercase mt-2 text-[#f0f]">FOCUS (THETA-GAMMA):</div>
+        <div className="text-xs mb-1 flex justify-between items-center uppercase mt-2 text-[#f0f]">INTENT (PAST-FUTURE PAC):</div>
         <div className="w-full h-1.5 bg-[#111] my-2 border border-[#333]">
           <div ref={focusFillRef} className="h-full bg-[#f0f] w-0 shadow-[0_0_10px_#f0f] transition-all duration-100"></div>
         </div>
@@ -759,11 +994,11 @@ export default function App() {
       {/* Start Screen Overlay */}
       {!gameStarted && (
         <div className="absolute inset-0 bg-black/95 flex flex-col justify-center items-center z-[100] text-center">
-          <h1 className="text-[#0ff] text-4xl mb-4 font-bold shadow-[#0ff]" style={{ textShadow: '0 0 20px #0ff' }}>NEURO REACTOR v10.1</h1>
+          <h1 className="text-[#0ff] text-4xl mb-4 font-bold shadow-[#0ff]" style={{ textShadow: '0 0 20px #0ff' }}>NEURO REACTOR v10.2</h1>
           <p className="text-[#888] max-w-md text-sm mb-5">
             "Frieren's Chests" - PAC Focus Edition.<br /><br />
             1. <b>Move:</b> Auto-move via Alpha/Beta symmetry.<br />
-            2. <b>Hack:</b> Stand near a chest. <b>Focus your mind</b> (calculate, stare, concentrate) to trigger Theta-Gamma PAC and reveal the chest!<br />
+            2. <b>Selective Telekinesis:</b> Focus your intent to align Past/Future Gamma. <b>Direct your focus</b> to pull specific blue energy orbs towards you!<br />
             3. Touch unrevealed chests at your own risk.
           </p>
           <button onClick={startBLE} className="bg-black text-[#0f0] border-2 border-[#0f0] px-8 py-4 text-xl cursor-pointer rounded-lg shadow-[0_0_10px_#0f0] m-2 font-mono hover:bg-[#0f0] hover:text-black transition-colors">
