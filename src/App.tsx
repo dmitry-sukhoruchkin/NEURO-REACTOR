@@ -390,6 +390,11 @@ export default function App() {
       if (s.reactor) s.reactor.update(s.target_vx, s.target_vy, s.target_tq, s.synapticPersistence, s.electrodePressure);
 
       // 2. РАБОЧАЯ ПАМЯТЬ И НАМЕРЕНИЕ (ТЕТА-ГАММА АСИММЕТРИЯ И ВЕКТОР)
+      // Scientific Basis: The theta-gamma neural code (Lisman & Jensen, 2013)
+      // DOI: 10.1016/j.neuron.2013.03.007
+      // The Present (Theta, ~6Hz) acts as the internal clock.
+      // The Past (Slow Gamma, 31-51Hz) appears on the descending phase.
+      // The Future (Fast Gamma, 61-102Hz) appears on the ascending phase.
       let global_intent = 0;
       let fast_vec_x = 0, fast_vec_y = 0;
       
@@ -806,7 +811,7 @@ export default function App() {
           <h1 className="text-[#0ff] text-4xl mb-4 font-bold shadow-[#0ff]" style={{ textShadow: '0 0 20px #0ff' }}>NEURO REACTOR v10.2</h1>
           <p className="text-[#888] max-w-md text-sm mb-5">
             "Neuro-Chests" - PAC Focus Edition.<br /><br />
-            1. <b>Move:</b> Auto-move via Alpha/Beta symmetry.<br />
+            1. <b>Move:</b> Auto-move via Beta/Lower Gamma (18-36 Hz) symmetry.<br />
             2. <b>Selective Telekinesis:</b> Focus your intent to align Past/Future Gamma. <b>Direct your focus</b> to pull specific blue energy orbs towards you!<br />
             3. Touch unrevealed chests at your own risk.
           </p>
