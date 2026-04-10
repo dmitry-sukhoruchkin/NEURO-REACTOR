@@ -10,24 +10,32 @@ Unlike traditional P300 spellers that rely on reactive evoked potentials, Neuro-
 
 ## Core Mechanics & Science
 
-### 1. Movement (Motor Intent via Coherence)
-Avatar movement is controlled by analyzing the **symmetry breaking and coherence** in the Beta and Lower Gamma bands across the hemispheres. 
-- The brain learns to navigate (forward, backward, turn) by modulating these symmetries. 
-- This acts as a "virtual gamepad" that the brain adapts to through neuroplasticity and operant conditioning.
+### 1. Zero-Lag Realtime & Pure Phase Coherence (ciPLV)
+The system operates with **zero algorithmic latency**. There are no moving averages (EMA), no buffering, and no artificial baselines. 
+- All calculations are based on **Complex Imaginary Phase-Locking Value (ciPLV)**.
+- We measure the *directed flow* of phase synchronization between all 28 pairs of electrodes.
+- Because there are no artificial baselines, the system exposes raw hardware (e.g., ADC multiplexing delays) and biological asymmetries. The brain must learn to find its own "zero" (auto-baseline) and compensate for these constant vector shifts through neuroplasticity and operant conditioning.
 
-### 2. Telekinesis & Interaction (Spatial Attention via Theta-Gamma PAC)
-Interaction with objects (pulling energy orbs, unlocking chests) is driven by **Theta-Gamma Phase-Amplitude Coupling (PAC)**. This is the brain's "native language" for spatial navigation and memory, requiring less training than motor imagery.
+### 2. Movement (Motor Intent via Alpha/Beta ciPLV)
+Avatar movement is controlled by analyzing the **symmetry breaking and directed phase coherence** in the Alpha and Beta bands across the hemispheres. 
+- The brain learns to navigate (forward, backward, turn) by modulating these symmetries. 
+- This acts as a "virtual gamepad" that the brain adapts to.
+
+### 3. Telekinesis & Interaction (Working Memory & Attention via Theta-Gamma PAC)
+Interaction with objects (pulling energy orbs, unlocking chests) is driven by **Theta-Gamma Phase-Amplitude Coupling (PAC)** combined with ciPLV. This represents the structure of working memory and spatial attention.
 
 We decode the temporal structure of the EEG signal relative to the Theta peak (The "Present"):
 - **The Present (Theta, ~6Hz):** Acts as the internal clock and phase reference.
 - **The Past (Slow Gamma, 31-51Hz):** Appears on the descending phase of Theta. Represents memory retrieval and context.
 - **The Future (Fast Gamma, 61-102Hz):** Appears on the ascending phase of Theta. Represents sensory prediction and spatial intent.
 
-### 3. Structural Analytics: The Population Vector & Sharpness
-Instead of reducing the complex 8-channel EEG data to a single "focus" number, the system analyzes the **spatial distribution** of the Fast Gamma (Future) across the cortex:
+### 4. Structural Analytics: The 8-Channel Radar
+Instead of reducing the complex 8-channel EEG data to a single "focus" number, the system visualizes the **spatial distribution and directed flow** of working memory:
+- **Cyan Polygon (Past):** Shows the flow of Slow Gamma synchronization. Where the brain is pulling context from.
+- **Magenta Polygon (Future):** Shows the flow of Fast Gamma synchronization. Where the brain is directing its intent.
 - **Population Vector (Direction):** By mapping the 8 electrodes to physical angles, we calculate a 2D vector representing the exact direction of spatial attention (the "Radar Beam").
 - **Sharpness (Focus Quality):** We measure the variance/entropy of the Fast Gamma across the 8 channels. 
-  - *Diffuse Attention:* All channels show equal Fast Gamma. The radar is a wide, weak circle.
+  - *Diffuse Attention:* All channels show equal phase flow. The radar is a wide, weak circle.
   - *Sharp Attention:* 1 or 2 channels spike significantly higher than the rest. The radar becomes a sharp, highly directional beam capable of locking onto specific objects.
 
 ## Audio Biofeedback (The Brain's Mirror)
@@ -38,6 +46,6 @@ To help the brain recognize its own states, the app features real-time sonificat
 
 ## How to Test
 1. Click **CONNECT BLE** to pair your 8-channel EEG headset.
-2. Use motor intent to navigate the maze.
-3. To interact with Orbs or Chests, direct your spatial attention towards them. You will see your "Attention Radar" (purple polygon) stretch in the direction of your focus.
+2. Use motor intent (Alpha/Beta symmetry) to navigate the maze.
+3. To interact with Orbs or Chests, direct your spatial attention towards them. You will see your "Attention Radar" (magenta polygon) stretch in the direction of your focus.
 4. Achieve high "Sharpness" to lock on and trigger the telekinesis/unlock mechanics.

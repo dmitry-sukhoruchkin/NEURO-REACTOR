@@ -805,7 +805,7 @@ export default function App() {
         <div className="absolute inset-0 bg-black/95 flex flex-col justify-center items-center z-[100] text-center">
           <h1 className="text-[#0ff] text-4xl mb-4 font-bold shadow-[#0ff]" style={{ textShadow: '0 0 20px #0ff' }}>NEURO REACTOR v10.2</h1>
           <p className="text-[#888] max-w-md text-sm mb-5">
-            "Frieren's Chests" - PAC Focus Edition.<br /><br />
+            "Neuro-Chests" - PAC Focus Edition.<br /><br />
             1. <b>Move:</b> Auto-move via Alpha/Beta symmetry.<br />
             2. <b>Selective Telekinesis:</b> Focus your intent to align Past/Future Gamma. <b>Direct your focus</b> to pull specific blue energy orbs towards you!<br />
             3. Touch unrevealed chests at your own risk.
