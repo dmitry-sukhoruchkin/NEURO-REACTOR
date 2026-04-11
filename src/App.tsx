@@ -41,6 +41,7 @@ export default function App() {
   const [gameStarted, setGameStarted] = useState(false);
   const [invertDevice, setInvertDevice] = useState(false);
   const [isVR, setIsVR] = useState(false);
+  const [moveModeState, setMoveModeState] = useState('absolute');
 
   // Game State
   const state = useRef({
@@ -72,7 +73,8 @@ export default function App() {
     fast_gamma_slots: Array.from({ length: 8 }, () => new Float32Array(NUM_SLOTS)),
     intent_angle: 0,
     ws: null,
-    floor: 1
+    floor: 1,
+    moveMode: 'absolute'
   });
 
   useEffect(() => {
@@ -369,18 +371,48 @@ export default function App() {
         applyNotchFilters(s.reArr[c], s.imArr[c]);
       }
 
-      // 1. АВТОПИЛОТ (АЛЬФА/БЕТА)
+      // 1. АВТОПИЛОТ (БЕТА/НИЖНЯЯ ГАММА)
       s.target_vx = 0; s.target_vy = 0; s.target_tq = 0; s.electrodePressure.fill(0);
+      let global_flow = 0;
+
       for (let i = 0; i < 8; i++) {
         for (let j = i + 1; j < 8; j++) {
-          let val = get_ciPLV(s.reArr, s.imArr, i, j);
+          let raw_val = get_ciPLV(s.reArr, s.imArr, i, j);
+          let move_val = raw_val;
+          let tq_val = raw_val;
+
+          if (s.moveMode === 'absolute') {
+            move_val = Math.abs(raw_val);
+            tq_val = Math.abs(raw_val);
+          } else if (s.moveMode === 'hybrid') {
+            // Scientific Basis: Cortical traveling waves and phase singularities (spirals)
+            // Energy = Movement, Sign = Rotation (Spiral Wave)
+            // DOI: 10.1038/nrn.2018.20 (Muller et al., 2018)
+            move_val = Math.abs(raw_val);
+            tq_val = raw_val;
+          } else if (s.moveMode === 'traveling_wave') {
+            // Scientific Basis: Macroscopic traveling waves routing information (Top-Down vs Bottom-Up)
+            // DOI: 10.1371/journal.pbio.3000487 (Alamia & VanRullen, 2019)
+            move_val = Math.abs(raw_val);
+            tq_val = Math.abs(raw_val);
+            global_flow += Math.sign(raw_val) * Math.abs(raw_val);
+          }
+
           let dx = ELECTRODES[j].x - ELECTRODES[i].x, dy = ELECTRODES[j].y - ELECTRODES[i].y;
-          s.target_vx += val * dx; s.target_vy += val * dy;
-          s.target_tq += (val * (ELECTRODES[i].x * dy - ELECTRODES[i].y * dx)) / (RADIUS * 10);
-          s.electrodePressure[i] += Math.abs(val); s.electrodePressure[j] += Math.abs(val);
+          s.target_vx += move_val * dx; s.target_vy += move_val * dy;
+          s.target_tq += (tq_val * (ELECTRODES[i].x * dy - ELECTRODES[i].y * dx)) / (RADIUS * 10);
+          s.electrodePressure[i] += Math.abs(raw_val); s.electrodePressure[j] += Math.abs(raw_val);
         }
       }
 
+      if (s.moveMode === 'traveling_wave') {
+        let flow_dir = global_flow >= 0 ? 1 : -1;
+        s.target_vx *= flow_dir;
+        s.target_vy *= flow_dir;
+      }
+
+      // Scientific Basis: Spike-Timing-Dependent Plasticity (STDP) & Operant Conditioning
+      // DOI: 10.1523/JNEUROSCI.18-24-10464.1998 (Bi & Poo, 1998)
       let mag = Math.sqrt(s.target_vx ** 2 + s.target_vy ** 2);
       let dot = s.target_vx * s.lastTargetX + s.target_vy * s.lastTargetY;
       let cosTheta = dot / (mag * Math.sqrt(s.lastTargetX ** 2 + s.lastTargetY ** 2) + 1e-6);
@@ -793,6 +825,14 @@ export default function App() {
             onChange={(e) => { state.current.zoomLevel = parseInt(e.target.value); e.target.previousElementSibling.lastChild.textContent = state.current.zoomLevel; }} />
         </div>
 
+        <button onClick={() => { 
+          const modes = ['absolute', 'signed', 'hybrid', 'traveling_wave'];
+          const newMode = modes[(modes.indexOf(state.current.moveMode) + 1) % modes.length];
+          state.current.moveMode = newMode;
+          setMoveModeState(newMode);
+        }} className={`w-full mt-2 py-2 px-4 border-2 rounded-lg font-mono transition-colors text-xs ${moveModeState === 'absolute' ? 'bg-black text-[#0f0] border-[#0f0] shadow-[0_0_10px_#0f0]' : 'bg-black text-[#f0f] border-[#f0f] shadow-[0_0_10px_#f0f]'}`}>
+          MODE: {moveModeState === 'absolute' ? 'ABSOLUTE (ENERGY)' : moveModeState === 'signed' ? 'SIGNED (RAW DIPOLES)' : moveModeState === 'hybrid' ? 'HYBRID (ENERGY+SPIRALS)' : 'WAVE (TOP-DOWN/BOTTOM-UP)'}
+        </button>
         <button onClick={() => setInvertDevice(!invertDevice)} className={`w-full mt-2 py-2 px-4 border-2 rounded-lg font-mono transition-colors ${invertDevice ? 'bg-black text-[#ff0] border-[#ff0] shadow-[0_0_10px_#ff0]' : 'bg-black text-[#0f0] border-[#0f0] shadow-[0_0_10px_#0f0]'}`}>
           USB CABLE: {invertDevice ? 'BOTTOM' : 'TOP'}
         </button>

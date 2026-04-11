@@ -4,7 +4,7 @@
 - [https://dmitry-sukhoruchkin.github.io/NEURO-REACTOR/](https://dmitry-sukhoruchkin.github.io/NEURO-REACTOR/)
 - [https://neuroidss.github.io/NEURO-REACTOR/](https://neuroidss.github.io/NEURO-REACTOR/)
 
-Neuro-Reactor is a real-time Brain-Computer Interface (BCI) simulation and game designed to test and decode spatial attention, motor intent, and cognitive states using raw EEG data (8 channels).
+Neuro-Reactor is a real-time, zero-lag Brain-Computer Interface (BCI) game designed for ultra-high-density local EEG modules (micro-arrays). It decodes proactive, continuous brain states using pure phase coherence and real-time audio-visual biofeedback.
 
 Unlike traditional P300 spellers that rely on reactive evoked potentials, Neuro-Reactor decodes **proactive, continuous brain states** using advanced signal processing and real-time audio-visual biofeedback.
 
@@ -44,8 +44,34 @@ To help the brain recognize its own states, the app features real-time sonificat
 - The volume and harmonic richness increase as the Theta-Gamma PAC strengthens.
 - When the Population Vector successfully locks onto an interactable object, the frequency shifts to a resonant 432Hz, providing instant reward and confirmation to the neural networks.
 
+## Movement Modes (Scientific Basis)
+Neuro-Reactor supports 4 distinct mathematical modes for decoding motor intent from the micro-array. You can toggle these in the UI (👁️ button):
+
+1. **ABSOLUTE (ENERGY)** - *Default Fallback*
+   - Uses the absolute magnitude of ciPLV. Ignores the direction of the cortical traveling wave.
+   - **Mechanism:** Measures the raw energy of local phase synchronization. Highly robust against micro-shifts in electrode placement.
+   - **DOI:** 10.1126/science.1107027 (Schoffelen et al., 2005)
+
+2. **SIGNED (RAW DIPOLES)**
+   - Uses the raw signed ciPLV.
+   - **Mechanism:** Maps the anatomical direction of the local cortical traveling wave directly to X/Y coordinates. Sensitive to gyri/sulci orientation.
+
+3. **HYBRID (ENERGY + SPIRALS)**
+   - Uses absolute ciPLV for forward/backward movement (Energy), but signed ciPLV for rotation (Torque).
+   - **Mechanism:** Decodes Phase Singularities (cortical spirals). The brain learns to "spin" the local phase field to turn the avatar.
+   - **DOI:** 10.1038/nrn.2018.20 (Muller et al., 2018 - Cortical traveling waves and spirals)
+
+4. **WAVE (TOP-DOWN / BOTTOM-UP)**
+   - Uses absolute ciPLV for movement magnitude, but calculates a "Global Flow" direction from the sum of all signs to act as a forward/reverse gearbox.
+   - **Mechanism:** Decodes the macroscopic routing of information. Top-down waves (expectations/intent) drive forward, bottom-up waves drive backward.
+   - **DOI:** 10.1371/journal.pbio.3000487 (Alamia & VanRullen, 2019)
+
+## Synaptic Persistence (Hebbian Learning)
+The game features a "Synaptic Stability" meter. Holding a consistent vector triggers simulated Spike-Timing-Dependent Plasticity (STDP), giving the avatar a speed boost.
+- **DOI:** 10.1523/JNEUROSCI.18-24-10464.1998 (Bi & Poo, 1998 - Synaptic plasticity)
+
 ## How to Test
-1. Click **CONNECT BLE** to pair your 8-channel EEG headset.
+1. Click **CONNECT BLE** to pair your 8-channel ultra-high-density local EEG module (micro-array).
 2. Use motor intent (Beta/Lower Gamma symmetry, 18-36 Hz) to navigate the maze.
 3. To interact with Orbs or Chests, direct your spatial attention towards them. You will see your "Attention Radar" (magenta polygon) stretch in the direction of your focus.
 4. Achieve high "Sharpness" to lock on and trigger the telekinesis/unlock mechanics.
