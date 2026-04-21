@@ -51,7 +51,7 @@ export class Bot {
         }
     }
 
-    update(time: number, maze: any) {
+    update(time: number, s: any) {
         this.simulateData();
 
         if (time - this.lastEegProcess > 33) {
@@ -133,50 +133,90 @@ export class Bot {
             let speed = Math.sqrt(rawDx**2 + rawDy**2);
             if (speed > 0.15) { rawDx = (rawDx/speed)*0.15; rawDy = (rawDy/speed)*0.15; }
             
-            const hit = (tx: number, ty: number) => {
-                let gx = Math.floor(tx), gy = Math.floor(ty);
-                if(gy<0||gy>=maze.dim||gx<0||gx>=maze.dim) return true;
-                return maze.grid[gy][gx] === 1;
-            };
+            if (s.demoMode === 'maze') {
+                const hit = (tx: number, ty: number) => {
+                    let gx = Math.floor(tx), gy = Math.floor(ty);
+                    if(gy<0||gy>=s.maze.dim||gx<0||gx>=s.maze.dim) return true;
+                    return s.maze.grid[gy][gx] === 1;
+                };
 
-            if(!hit(this.x + rawDx + Math.sign(rawDx)*0.2, this.y)) this.x += rawDx; 
-            if(!hit(this.x, this.y + rawDy + Math.sign(rawDy)*0.2)) this.y += rawDy; 
+                if(!hit(this.x + rawDx + Math.sign(rawDx)*0.2, this.y)) this.x += rawDx; 
+                if(!hit(this.x, this.y + rawDy + Math.sign(rawDy)*0.2)) this.y += rawDy; 
+                
+                // Bot interaction with chests and orbs
+                for (let chest of s.maze.chests) {
+                    if (chest.state === 'looted') continue;
+                    let dx = chest.x - this.x;
+                    let dy = chest.y - this.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
 
-            // Bot interaction with chests and orbs
-            for (let chest of maze.chests) {
-                if (chest.state === 'looted') continue;
-                let dx = chest.x - this.x;
-                let dy = chest.y - this.y;
-                let dist = Math.sqrt(dx*dx + dy*dy);
-
-                if (dist < 0.5) {
-                    chest.state = 'looted';
-                    if (!chest.isMimic) this.score += 500;
-                    else this.score -= 500;
-                } else if (dist < 3.0 && chest.state === 'closed') {
-                    // Bots randomly focus on chests
-                    if (max_intent > 0.3) {
-                        chest.scanProgress += (max_intent - 0.3) * 0.05;
-                        if (chest.scanProgress >= 1.0) chest.state = 'revealed';
+                    if (dist < 0.5) {
+                        chest.state = 'looted';
+                        if (!chest.isMimic) this.score += 500;
+                        else this.score -= 500;
+                    } else if (dist < 3.0 && chest.state === 'closed') {
+                        // Bots randomly focus on chests
+                        if (max_intent > 0.3) {
+                            chest.scanProgress += (max_intent - 0.3) * 0.05;
+                            if (chest.scanProgress >= 1.0) chest.state = 'revealed';
+                        }
                     }
                 }
-            }
 
-            for (let orb of maze.orbs) {
-                if (orb.collected) continue;
-                let dx = orb.x - this.x;
-                let dy = orb.y - this.y;
-                let dist = Math.sqrt(dx*dx + dy*dy);
+                for (let orb of s.maze.orbs) {
+                    if (orb.collected) continue;
+                    let dx = orb.x - this.x;
+                    let dy = orb.y - this.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
 
-                if (dist < 0.5) {
-                    orb.collected = true;
-                    this.score += 100;
-                } else if (dist < 4.0 && max_intent > 0.3) {
-                    // Bots pull orbs
-                    let pullForce = (max_intent - 0.3) * 0.15;
-                    orb.x -= (dx / dist) * pullForce;
-                    orb.y -= (dy / dist) * pullForce;
+                    if (dist < 0.5) {
+                        orb.collected = true;
+                        this.score += 100;
+                    } else if (dist < 4.0 && max_intent > 0.3) {
+                        // Bots pull orbs
+                        let pullForce = (max_intent - 0.3) * 0.15;
+                        orb.x -= (dx / dist) * pullForce;
+                        orb.y -= (dy / dist) * pullForce;
+                    }
                 }
+            } else if (s.demoMode === 'holacracy') {
+                this.x += rawDx;
+                this.y += rawDy;
+                
+                const outerCircle = s.demoState.circles && s.demoState.circles.length > 0 ? s.demoState.circles[0] : null;
+                if (outerCircle) {
+                    let dxCenter = this.x - outerCircle.x;
+                    let dyCenter = this.y - outerCircle.y;
+                    let distCenter = Math.sqrt(dxCenter*dxCenter + dyCenter*dyCenter);
+                    if (distCenter > outerCircle.targetR) {
+                        this.x = outerCircle.x + (dxCenter / distCenter) * outerCircle.targetR;
+                        this.y = outerCircle.y + (dyCenter / distCenter) * outerCircle.targetR;
+                    }
+                }
+
+                if (max_intent > 0.3 && s.demoState.circles) {
+                    let activeCircle = null;
+                    let minR = 999;
+                    for (let c of s.demoState.circles) {
+                        let d = Math.sqrt((this.x - c.x)**2 + (this.y - c.y)**2);
+                        if (d < c.r && c.r < minR) {
+                            activeCircle = c;
+                            minR = c.r;
+                        }
+                    }
+                    if (activeCircle) {
+                        activeCircle.energy += (max_intent - 0.3) * 0.02;
+                        if (activeCircle.energy > 1.0) {
+                            activeCircle.energy = 0;
+                            activeCircle.targetR += 1.0;
+                            if (activeCircle.id === 1 && activeCircle.targetR > 18) activeCircle.targetR = 18;
+                            else if (activeCircle.id !== 1 && activeCircle.targetR > 8) activeCircle.targetR = 8;
+                        }
+                    }
+                }
+            } else {
+                this.x += rawDx;
+                this.y += rawDy;
             }
         }
     }

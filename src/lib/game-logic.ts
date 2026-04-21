@@ -514,5 +514,58 @@ export function updatePhysics(s: any, invertDevice: boolean, takeDamage: () => v
             s.demoState.rings.shift();
             s.scorePenalty -= 200;
         }
+    } else if (s.demoMode === 'holacracy') {
+        s.player.x += targetDx;
+        s.player.y += targetDy;
+        
+        const outerCircle = s.demoState.circles && s.demoState.circles.length > 0 ? s.demoState.circles[0] : null;
+        if (outerCircle) {
+            let dxCenter = s.player.x - outerCircle.x;
+            let dyCenter = s.player.y - outerCircle.y;
+            let distCenter = Math.sqrt(dxCenter*dxCenter + dyCenter*dyCenter);
+            if (distCenter > outerCircle.targetR) {
+                s.player.x = outerCircle.x + (dxCenter / distCenter) * outerCircle.targetR;
+                s.player.y = outerCircle.y + (dyCenter / distCenter) * outerCircle.targetR;
+            }
+        }
+
+        // Apply governance/work if focused
+        if (s.smooth_focus > s.holoThr && s.demoState.circles) {
+            let activeCircle = null;
+            let minR = 999;
+            for (let c of s.demoState.circles) {
+                let d = Math.sqrt((s.player.x - c.x)**2 + (s.player.y - c.y)**2);
+                if (d < c.r && c.r < minR) {
+                    activeCircle = c;
+                    minR = c.r;
+                }
+            }
+            if (activeCircle) {
+                activeCircle.energy += (s.smooth_focus - s.holoThr) * 0.05 * (1 + s.sharpness);
+                s.scorePenalty -= (s.smooth_focus - s.holoThr) * 1.5; // Score for doing work
+                
+                // If the circle gets enough energy, it grows slightly (simulate structural change)
+                if (activeCircle.energy > 1.0) {
+                    activeCircle.energy = 0;
+                    activeCircle.targetR += 1.0;
+                    // Cap size
+                    if (activeCircle.id === 1 && activeCircle.targetR > 18) activeCircle.targetR = 18;
+                    else if (activeCircle.id !== 1 && activeCircle.targetR > 8) activeCircle.targetR = 8;
+                }
+            }
+        }
+
+        // Entropy / Shrinking
+        if (s.demoState.circles) {
+            for (let c of s.demoState.circles) {
+                c.energy *= 0.98;
+                c.r = c.r * 0.95 + c.targetR * 0.05; // smooth scaling
+                if (Math.random() < 0.01) {
+                    c.targetR -= 0.1; // slow decay of structure over time
+                }
+                if (c.id === 1 && c.targetR < 8) c.targetR = 8;
+                else if (c.id !== 1 && c.targetR < 2) c.targetR = 2;
+            }
+        }
     }
 }

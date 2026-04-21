@@ -151,7 +151,7 @@ export default function App() {
     }
 
     for (let bot of s.bots) {
-        bot.update(time, s.maze);
+        bot.update(time, s);
     }
 
     let neScore = 0;
@@ -581,12 +581,26 @@ export default function App() {
           <select 
             className="w-full bg-black text-[#0f0] border border-[#0f0] rounded p-1 text-xs mb-2 outline-none"
             onChange={(e) => {
-              state.current.demoMode = e.target.value;
+              const newMode = e.target.value;
+              state.current.demoMode = newMode;
               // Reset player position for new mode
               state.current.player.x = 1.5;
               state.current.player.y = 1.5;
               state.current.player.angle = 0;
               state.current.demoTargets = [];
+              
+              if (newMode === 'holacracy') {
+                state.current.demoState = { 
+                  circles: [
+                    { id: 1, name: 'General Company Circle', x: 0, y: 0, r: 12, color: 'hsla(210, 80%, 30%, 0.4)', energy: 0, targetR: 12 },
+                    { id: 2, name: 'Event Delivery', x: 4, y: 3, r: 4, color: 'hsla(45, 100%, 40%, 0.4)', energy: 0, targetR: 4 },
+                    { id: 3, name: 'Coaching', x: 2, y: -4, r: 3.5, color: 'hsla(30, 100%, 45%, 0.4)', energy: 0, targetR: 3.5 },
+                    { id: 4, name: 'Marketing', x: -5, y: -2, r: 3, color: 'hsla(330, 80%, 40%, 0.4)', energy: 0, targetR: 3 }
+                  ]
+                };
+                state.current.player.x = 0;
+                state.current.player.y = 0;
+              }
             }}
             defaultValue="maze"
           >
@@ -594,6 +608,7 @@ export default function App() {
             <option value="maze">BrainMaze (★★☆☆☆)</option>
             <option value="drone">BrainDrone (★★☆☆☆)</option>
             <option value="car">BrainCar (★★☆☆☆)</option>
+            <option value="holacracy">BrainHolacracy (★★★☆☆)</option>
           </select>
 
           <div className="text-[10px] mb-2 text-[#0ff] font-bold mt-4">DEBUG OVERLAYS</div>

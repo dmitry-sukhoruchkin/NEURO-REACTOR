@@ -172,6 +172,49 @@ export function drawScene(ctx: CanvasRenderingContext2D, width: number, height: 
             ctx.beginPath(); ctx.arc(0, 0, cellSize*0.4, 0, Math.PI*2); ctx.stroke();
             ctx.restore();
         }
+    } else if (s.demoMode === 'holacracy') {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        for (let i = -20; i <= 20; i++) {
+            ctx.beginPath(); ctx.moveTo(i * cellSize, -20 * cellSize); ctx.lineTo(i * cellSize, 20 * cellSize); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-20 * cellSize, i * cellSize); ctx.lineTo(20 * cellSize, i * cellSize); ctx.stroke();
+        }
+        
+        if (s.demoState.circles) {
+            // Sort by radius descending so smaller circles are drawn on top
+            let sortedCircles = [...s.demoState.circles].sort((a, b) => b.r - a.r);
+            
+            for (let c of sortedCircles) {
+                let cx = c.x * cellSize;
+                let cy = c.y * cellSize;
+                let r = c.r * cellSize;
+
+                ctx.fillStyle = c.color;
+                ctx.beginPath(); 
+                ctx.arc(cx, cy, r, 0, Math.PI*2); 
+                ctx.fill();
+
+                ctx.strokeStyle = c.id === 1 ? '#fff' : c.color.replace('0.4', '1.0');
+                ctx.lineWidth = 2 + (c.energy * 2); // thicker when energized
+                ctx.beginPath(); 
+                ctx.arc(cx, cy, r, 0, Math.PI*2); 
+                ctx.stroke();
+
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(c.name, cx, cy - r + 15);
+                
+                // Show energy ring
+                if (c.energy > 0.01) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, r + 5, -Math.PI/2, -Math.PI/2 + (c.energy * Math.PI * 2));
+                    ctx.stroke();
+                }
+            }
+        }
     }
 
     if (s.moveMode === 'pointer') {

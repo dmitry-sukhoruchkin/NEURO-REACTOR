@@ -130,6 +130,11 @@ The FreeEEG8-alpha is an ultra-high-density micro-array. Its placement significa
 - **Oz (Occipital Midline):** Primarily captures visual processing. Useful if you are experimenting with visual evoked potentials or visual attention, but less optimal for pure motor control.
 - **Orientation:** The orientation of the array (e.g., USB cable pointing UP vs. DOWN) will invert the Y-axis of the decoded dipoles. Use the `USB CABLE: TOP/BOTTOM` toggle in the UI to correct this without physically rotating the device.
 
+## Hardware Firmware
+The `firmware` folder contains two C++ files for ESP32 devices:
+1. `main.cpp`: The primary firmware for the EEG headset, which interfaces with the ADC via SPI and broadcasts the data over BLE.
+2. `gamepad_dongle.cpp`: An optional receiver firmware. If you flash this onto an ESP32-S2/S3 (which supports native USB HID), it will automatically connect to your headset via BLE, process the brainwaves locally, and act as a standard USB Gamepad that you can plug into any PC or console.
+
 ## Scientific References & DOIs
 The algorithms and frequency bands used in Neuro-Reactor are grounded in neurophysiological research:
 
